@@ -28,6 +28,7 @@ def get_formated_filename(input_path, src_filename):
                              "-d", dt_format,
                              "-CreateDate",
                              "-MIMEType",
+                             "-CreationDate",
                              "-FileModifyDate",
                              "-GPSLatitude",
                              "-GPSLongitude",
@@ -37,18 +38,18 @@ def get_formated_filename(input_path, src_filename):
 
     extracted = json.loads(out)[0]
     parsed = json.loads(json.dumps(extracted))
+    debug("JSON: %s" % parsed)
 
     if 'CreateDate' in parsed and 'MIMEType' in parsed:
         cdate = parsed['CreateDate']
         media_type = parsed['MIMEType']
         debug("EXIF:MIMEType: %s" % media_type)
         debug("EXIF:CreateDate: %s" % cdate)
-        if media_type.startswith(u'video/'):
-            # Convert UTC to local tz for video format
-            dt = datetime.strptime(cdate, dt_format)
-            dt = dt.replace(tzinfo=tz.tzutc())
-            cdate = dt.astimezone(tz.tzlocal()).strftime(dt_format)
-
+        if media_type.startswith(u'video/') and 'CreationDate' in parsed:
+            debug("EXIF:CreationDate: %s" % parsed['CreationDate'])
+            cdate = parsed['CreationDate']
+        else:
+            cdate = None
     else:
         cdate = None
 
