@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 
+from datetime import datetime
+from dateutil import tz
 from geopy.geocoders import Nominatim
 from geopy.exc import GeopyError
 from optparse import OptionParser
@@ -15,7 +17,7 @@ from os.path import isfile, isdir, join, dirname, basename, splitext
 
 IS_DEBUG = False
 NEW_ADDRESS_ITEM = []
-
+dt_format = "%Y%m%d_%H%M%S"
 
 def get_formated_filename(input_path, src_filename):
     debug("File: %s" %src_filename)
@@ -23,7 +25,7 @@ def get_formated_filename(input_path, src_filename):
     proc = subprocess.Popen(["exiftool",
                              "-json",
                              "-c", "%.10f",
-                             "-d", "%Y%m%d_%H%M%S",
+                             "-d", dt_format,
                              "-CreateDate",
                              "-MIMEType",
                              "-FileModifyDate",
@@ -41,7 +43,11 @@ def get_formated_filename(input_path, src_filename):
         media_type = parsed['MIMEType']
         debug("EXIF:MIMEType: %s" % media_type)
         debug("EXIF:CreateDate: %s" % cdate)
-        if media_type.startwith(u'video/'):
+        if media_type.startswith(u'video/'):
+            # Convert UTC to local tz for video format
+            dt = datetime.strptime(cdate, dt_format)
+            dt = dt.replace(tzinfo=tz.tzutc())
+            cdate = dt.astimezone(tz.tzlocal()).strftime(dt_format)
 
     else:
         cdate = None
