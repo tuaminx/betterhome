@@ -45,11 +45,12 @@ def get_formated_filename(input_path, src_filename):
         media_type = parsed['MIMEType']
         debug("EXIF:MIMEType: %s" % media_type)
         debug("EXIF:CreateDate: %s" % cdate)
-        if media_type.startswith(u'video/') and 'CreationDate' in parsed:
-            debug("EXIF:CreationDate: %s" % parsed['CreationDate'])
-            cdate = parsed['CreationDate']
-        else:
-            cdate = None
+        if media_type.startswith(u'video/'):
+            if 'CreationDate' in parsed:
+                debug("EXIF:CreationDate: %s" % parsed['CreationDate'])
+                cdate = parsed['CreationDate']
+            else:
+                cdate = None
     else:
         cdate = None
 
