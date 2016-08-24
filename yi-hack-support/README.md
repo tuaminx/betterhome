@@ -1,5 +1,5 @@
 # yi-hack-support
-This is the supporting script for who is using hacked rom of Xiaomi Yi Smart camera
+This is the supporting script for whom using hacked rom of Xiaomi Yi Smart camera
 
 (https://github.com/fritz-smh/yi-hack)
 
