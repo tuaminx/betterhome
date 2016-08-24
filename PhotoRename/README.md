@@ -10,17 +10,17 @@ Python script to:
 
 4. Get position lable by GPS lat, lon from Open Steet Map service.
 
-5. Rename the file to new filename with syntax: `<time lable>_<position lable>.<file extension>`.
+5. Rename the file to new filename with syntax: `<time lable>_<position lable>.<file extension>`
 
 E.g: `20160603_114724-Vung_Tau_Intourco_Resort-Tỉnh_Bà_Rịa_–_Vũng_Tàu-Việt_Nam.jpg`
 
-# Purpose:
+# Purpose
 
 When we arrange pictures or videos in the order of filename, they are arranged from the past to present or vice versa without reading file header.
 
-The postion lable helps us to remember where the picture of video was captured or recorded.
+The postion lable helps us to remember where the picture or video was captured or recorded.
 
-# TODO:
+# TODO
 
 1. Add setup.py for auto-setup
 
