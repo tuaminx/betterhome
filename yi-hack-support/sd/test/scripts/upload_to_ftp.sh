@@ -145,8 +145,8 @@ is_leap_year()
 
 main()
 {
-   last_folder = ""
-   last_file = ""
+   last_folder=""
+   last_file=""
 
    # Here we goooooo!
    is_server_live $ftp_host
