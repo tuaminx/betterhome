@@ -1,14 +1,16 @@
 #!/bin/sh
 
+SCRIPT_DIR=$(dirname "$0")
+
 # ----------------------------
 ftp_dir="/path/to/folder/on/ftp"
-ftp_host="192.168.1.1"
+ftp_host="192.168.1.something"
 ftp_port="21"
 ftp_login="ftp_username"
 ftp_pass="ftp_password"
-ftp_mem_file="/tmp/hd1/test/ftp_upload.mem"
-ftp_log_file="/tmp/hd1/test/ftp_upload.log"
-pid_file="/tmp/hd1/test/ftp_upload.pid"
+ftp_mem_file="$SCRIPT_DIR/ftp_upload.mem"
+ftp_log_dir="/var/log/ftp_upload"
+pid_file="/var/run/ftp_upload.pid"
 # ----------------------------
 
 record_dir="/tmp/hd1/record/"
@@ -43,58 +45,65 @@ is_pid_exist()
 
 pid_store()
 {
-    echo $1 > "$pid_file"
+    echo $1 > ${2-"$pid_file"}
 }
 
 pid_get()
 {
-    cat $pid_file
+    cat ${1-"$pid_file"}
 }
 
 pid_clear()
 {
-    cat /dev/null > $pid_file
+    cat /dev/null > ${1-"$pid_file"}
 }
 
 log()
 {
-   echo $2 $1
-   echo $2 "$(date +'%Y%m%d.%H%M%S') $1" >> $ftp_log_file
+   echo $2 $1 | svlogd -tt ${3-"$ftp_log_dir"}
+   #echo $2 "$(date +'%Y%m%d.%H%M%S') $1" >> $ftp_log_file
 }
 
 mem_store()
 {
    last_folder=$1
    last_file=$2
-   echo "${last_folder}/${last_file}" > $ftp_mem_file
+   echo "${last_folder}/${last_file}" > ${1-"$ftp_mem_file"}
 }
 
 mem_get()
 {
-   last_folder=$(cat ${ftp_mem_file} | cut -d'/' -f1)
-   last_file=$(cat ${ftp_mem_file} | cut -d'/' -f2)
+   mfile=${1-"$ftp_mem_file"}
+   last_folder=$(cat ${mfile} | cut -d'/' -f1)
+   last_file=$(cat ${mfile} | cut -d'/' -f2)
    if [ -z "${last_folder}" ] || [ -z "${last_file}" ]; then
-      log "[SCR] Cannot find last folder and file in $ftp_mem_file"
-      log "[SRC] The file should content as: 2016Y08M01D13H|23M00S.mp4"
+      log "[SCR] Cannot find last folder and file in $mfile"
+      log "[SRC] The file should content as: 2016Y08M01D13H/23M00S.mp4"
       exit 1
    fi
 }
 
 ftp_get_pasv_port()
 {
+   user=${1-"$ftp_login"}
+   pass=${2-"$ftp_pass"}
+   fdir=${3-"$ftp_dir"}
+   fhost=${4-"$ftp_host"}
+   fport=${5-"$ftp_port"}
+
    ret=`(sleep 1
-         echo "USER ${ftp_login}"
+         echo "USER ${user}"
          sleep 1
-         echo "PASS ${ftp_pass}"
+         echo "PASS ${pass}"
          sleep 1
-         echo "CWD ${ftp_dir}"
+         echo "CWD ${fdir}"
          sleep 1
          echo "PASV"
          sleep 1
          echo "LIST"
          sleep 1
          echo "QUIT"
-         sleep 1) | telnet ${ftp_host} ${ftp_port}`
+         sleep 1) | telnet ${fhost} ${fport}`
    ret=$(echo $ret | sed -n 's/.*(\(.*\)).*/\1/p')
    #echo $ret
    a=$(echo $ret | cut -d',' -f5)
@@ -111,23 +120,37 @@ ftp_get_return()
 
 ftp_mkd()
 {
+   user=${2-"$ftp_login"}
+   pass=${3-"$ftp_pass"}
+   fdir=${4-"$ftp_dir"}
+   fhost=${5-"$ftp_host"}
+   fport=${6-"$ftp_port"}
+   logdir=${7-"$ftp_log_dir"}
+
    (sleep 1;
-    echo "USER ${ftp_login}";
+    echo "USER ${user}";
     sleep 1;
-    echo "PASS ${ftp_pass}";
+    echo "PASS ${pass}";
     sleep 1;
-    echo "MKD ${ftp_dir}/$1";
+    echo "MKD ${fdir}/$1";
     sleep 1;
     echo "QUIT";
-    sleep 1 ) | telnet ${ftp_host} ${ftp_port} >> $ftp_log_file
+    sleep 1 ) | telnet ${fhost} ${fport} 2>&1 | svlogd -tt $logdir
 }
 
 ftp_upload()
 {
+   user=${3-"$ftp_login"}
+   pass=${4-"$ftp_pass"}
+   fdir=${5-"$ftp_dir"}
+   fhost=${6-"$ftp_host"}
+   fport=${7-"$ftp_port"}
+   logdir=${8-"$ftp_log_dir"}
+
    from_f=$1
    to_f=$2
-   ftpput -u ${ftp_login} -p ${ftp_pass} -P ${ftp_port} ${ftp_host} \
-          ${ftp_dir}/${to_f} ${from_f} >> $ftp_log_file 2>&1
+   ftpput -u ${user} -p ${pass} -P ${fport} ${fhost} \
+          ${fdir}/${to_f} ${from_f} 2>&1 | svlogd -tt $logdir
    return $?
 }
 
@@ -145,6 +168,7 @@ is_leap_year()
 
 main()
 {
+
    last_folder=""
    last_file=""
 
@@ -204,12 +228,11 @@ main()
             fi
             this_i=$(echo $file | cut -d'M' -f1)
             this_s=$(echo $file | cut -d'S' -f1 | cut -d'M' -f2)
-            if [ "${this_i}${this_s}" -eq "${last_i}${last_s}" ] || \
-               [ "${this_i}${this_s}" -gt "${last_i}${last_s}" ]; then
+            if [ "${this_i}${this_s}" -gt "${last_i}${last_s}" ]; then
                log "[FTP] Uploading ${last_folder}/${file}"
                ftp_upload ${record_dir}/${last_folder}/${file} ${last_folder}/${file}
                mem_store ${last_folder} ${file}
-               if [ $? -ne 0 ]; then 
+               if [ $? -ne 0 ]; then
                   log "[FTP] FAILED"
                   exit 1
                fi
@@ -217,7 +240,7 @@ main()
             fi
          done
       fi
-      if [ $(expr match "$last_h" '0*') -gt 0 ]; then 
+      if [ $(expr match "$last_h" '0*') -gt 0 ]; then
          last_h=${last_h:1}
       fi
       last_h=$(printf %02d $((last_h + 1)))
@@ -242,7 +265,7 @@ main()
          is_leap_year $last_y
          if [ $? -eq 0 ]; then
             max_d02=29
-         else 
+         else
             max_d02=28
          fi
       fi
@@ -256,14 +279,228 @@ main()
    pid_clear
 }
 
+info_check()
+{
+   mess=$1
+   echo -en "[....] $mess"
+}
+
+info_ok()
+{
+   echo -e "\r[.OK.]"
+}
+
+info_fail()
+{
+   mess=$1
+   reason=$2
+   echo -e "\r[FAIL] ${mess}: $reason"
+}
+
+setup()
+{
+   number_keep_day=10
+   title="Create mem file. Start upload videos of last $number_keep_day days"
+   info_check "$title"
+   mem_file_content=$(date -D %s -d $(( $(date +%s) - ((86400 * $number_keep_day)) )) +'%YY%mM%dD00H/00M00S.mp4')
+   echo $mem_file_content > "$ftp_mem_file"
+   if [ $? -eq 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "Cannot CREATE $ftp_mem_file"
+   fi
+
+   title="Create Log dir"
+   info_check "$title"
+   if [ -r "$ftp_log_dir" ]; then
+      info_ok
+   else
+      mkdir -p "$ftp_log_dir"
+      if [ $? -eq 0 ]; then
+         info_ok
+      else
+         info_fail "$title" "Cannot CREATE $ftp_log_dir"
+      fi
+   fi
+
+   title="Create PID file"
+   info_check "$title"
+   if [ -r "$pid_file" ]; then
+      info_ok
+   else
+      touch "$pid_file"
+      if [ $? -eq 0 ]; then
+         info_ok
+      else
+         info_fail "$title" "Cannot CREATE $pid_file"
+      fi
+   fi
+
+   title="Create crontabs dir"
+   info_check "$title"
+   if [ -r "/var/spool/cron/crontabs" ]; then
+      info_ok
+   else
+      mkdir -p "/var/spool/cron/crontabs"
+      if [ $? -eq 0 ]; then
+         info_ok
+      else
+         info_fail "$title" "Cannot CREATE /var/spool/cron/crontabs"
+      fi
+   fi
+
+   title="Create cron job"
+   info_check "$title"
+   if [ ! -r "/var/spool/cron/crontabs/root" ]; then
+      # Empty crontab file
+      cat <<EOF > "/var/spool/cron/crontabs/root"
+# cat /var/spool/cron/crontabs/root
+# Edit this file to introduce tasks to be run by cron.
+#
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+#
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').#
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+#
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+#
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+#
+# For more information see the manual pages of crontab(5) and cron(8)
+#
+# m h  dom mon dow   command
+
+EOF
+   fi
+
+   if [ $(crontab -l | grep -e "^#.*upload_to_ftp.sh" | wc -l) -lt 1 ] && [ $(crontab -l | grep "upload_to_ftp.sh" | wc -l) -gt 0 ]; then
+      info_ok
+   else
+      echo "*/7 * * * * $SCRIPT_DIR/upload_to_ftp.sh >/dev/null 2>&1" >> "/var/spool/cron/crontabs/root"
+      if [ $? -eq 0 ]; then
+         info_ok
+      else
+         info_fail "$title" "Cannot CREATE cron job. Please do yourself by crontab -e"
+      fi
+   fi
+
+   title="Start crond daemon"
+   info_check "$title"
+   if [ $(ps | pgrep crond | wc -l) -gt 0 ]; then
+      info_ok
+   else
+      /usr/sbin/crond -b
+      if [ $? -eq 0 ]; then
+         info_ok
+      else
+         info_fail "$title" "Cannot start /usr/sbin/crond -b"
+      fi
+   fi
+
+   echo '[WARN] Please add command "/usr/sbin/crond -b" into a line upper "led $(get_config LED_WHEN_READY)" in "/tmp/hd1/test/equip_test.sh" by yourself.'
+   echo '[INFO] After above done, let use "upload_to_ftp.sh status"'
+
+}
+
+check_status()
+{
+   title="Check mem file"
+   info_check "$title"
+   if [ -r "$ftp_mem_file" ]; then
+      info_ok
+   else
+      info_fail "$title" "Cannot READ $ftp_mem_file"
+   fi
+
+   title="Check log directory"
+   info_check "$title"
+   if [ -r "$ftp_log_dir" ]; then
+      info_ok
+   else
+      info_fail "$title" "Cannot FIND $ftp_log_dir. Please mkdir -p $ftp_log_dir"
+   fi
+
+   title="Check crontabs directory"
+   info_check "$title"
+   if [ -d "/var/spool/cron/crontabs" ]; then
+      info_ok
+   else
+      info_fail "$title" "crontabs NOT FOUND. Please: mkdir -p /var/spool/cron/crontabs"
+   fi
+
+   title="Check crond daemon"
+   info_check "$title"
+   if [ $(ps | pgrep crond | wc -l) -gt 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "crond daemon OFFLINE. Please: /usr/sbin/crond -b"
+   fi
+
+   title="Check cron job existence"
+   info_check "$title"
+   if [ $(crontab -l | grep upload_to_ftp.sh | wc -l) -gt 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "Cron job NOT FOUND. Please: crontab -e"
+   fi
+
+   title="Check cron job usability"
+   info_check "$title"
+   if [ $(crontab -l | grep -e "^#.*$SCRIPT_DIR/upload_to_ftp.sh" | wc -l) -lt 1 ]; then
+      info_ok
+   else
+      info_fail "$title" "Cron job DISABLED. Please: crontab -e and remove #"
+   fi
+
+   title="Check FTP server $ftp_host"
+   info_check "$title"
+   is_server_live "$ftp_host"
+   if [ $? -eq 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "FTP $ftp_host is UNREACHABLE"
+   fi
+}
+
+#
+# Start the main script
+#
+
+# Check and accept 1 parameter only
+if [ "$#" -gt 1 ]; then
+   echo "[FAIL] Just 1 parameter is supported!"
+   echo -e "\n$0\n\nUsage:"
+   echo -e "\t setup\tSetup for usage"
+   echo -e "\t status\tCheck working status"
+   echo -e "\nBefore \"setup\" please edit configuration in the top of $0"
+   exit 1
+fi
+
+# Process for parameter and stop script
+if [ "$1" == "status" ]; then
+   check_status
+   exit 0
+elif [ "$1" == "setup" ]; then
+   setup
+   exit 0
+fi
+
+#
+# For non-parameter, the main function is started
+#
 last_pid=$(pid_get)
-log "[SRC]--------------------"
-log "[SRC] Last PID: $last_pid"
 
 if [ -n "$last_pid" ]; then
    is_pid_exist $last_pid
    if [ $? -eq 0 ]; then
-      log "[SRC] $last_pid is running. Stop!"
       exit 0
    else
       log "[SRC] $last_pid is not existed. Start new"
@@ -271,7 +508,7 @@ if [ -n "$last_pid" ]; then
    fi
 fi
 
-main > /dev/null &
+main &
 
 pid_store $!
 
