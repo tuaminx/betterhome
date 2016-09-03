@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR="/tmp/hd1/test/scripts"
 
 # ----------------------------
 ftp_dir="/path/to/folder/on/ftp"
@@ -8,9 +8,9 @@ ftp_host="192.168.1.something"
 ftp_port="21"
 ftp_login="ftp_username"
 ftp_pass="ftp_password"
-ftp_mem_file="$SCRIPT_DIR/ftp_upload.mem"
-ftp_log_dir="/var/log/ftp_upload"
-pid_file="/var/run/ftp_upload.pid"
+ftp_mem_file="$SCRIPT_DIR/ftp_upload/ftp_upload.mem"
+ftp_log_dir="$SCRIPT_DIR/ftp_upload/log"
+pid_file="$SCRIPT_DIR/ftp_upload/ftp_upload.pid"
 # ----------------------------
 
 record_dir="/tmp/hd1/record/"
