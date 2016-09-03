@@ -18,7 +18,6 @@ ftp_pass="ftp_password"
 
 Start the setup
 
-WARNING: It's very IMPROTANT to execute the script with its full path `/tmp/hd1/test/scripts/upload_to_ftp.sh setup`
 ```
 telnet <camera_ip>
 

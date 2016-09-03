@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR="/tmp/hd1/test/scripts"
 
 # ----------------------------
 ftp_dir="/path/to/folder/on/ftp"
@@ -8,9 +8,9 @@ ftp_host="192.168.1.something"
 ftp_port="21"
 ftp_login="ftp_username"
 ftp_pass="ftp_password"
-ftp_mem_file="$SCRIPT_DIR/ftp_upload.mem"
-ftp_log_dir="/var/log/ftp_upload"
-pid_file="/var/run/ftp_upload.pid"
+ftp_mem_file="$SCRIPT_DIR/ftp_upload/ftp_upload.mem"
+ftp_log_dir="$SCRIPT_DIR/ftp_upload/log"
+pid_file="$SCRIPT_DIR/ftp_upload/ftp_upload.pid"
 # ----------------------------
 
 record_dir="/tmp/hd1/record/"
@@ -299,17 +299,6 @@ info_fail()
 
 setup()
 {
-   number_keep_day=10
-   title="Create mem file. Start upload videos of last $number_keep_day days"
-   info_check "$title"
-   mem_file_content=$(date -D %s -d $(( $(date +%s) - ((86400 * $number_keep_day)) )) +'%YY%mM%dD00H/00M00S.mp4')
-   echo $mem_file_content > "$ftp_mem_file"
-   if [ $? -eq 0 ]; then
-      info_ok
-   else
-      info_fail "$title" "Cannot CREATE $ftp_mem_file"
-   fi
-
    title="Create Log dir"
    info_check "$title"
    if [ -r "$ftp_log_dir" ]; then
@@ -321,6 +310,17 @@ setup()
       else
          info_fail "$title" "Cannot CREATE $ftp_log_dir"
       fi
+   fi
+
+   number_keep_day=10
+   title="Create mem file. Start upload videos of last $number_keep_day days"
+   info_check "$title"
+   mem_file_content=$(date -D %s -d $(( $(date +%s) - ((86400 * $number_keep_day)) )) +'%YY%mM%dD00H/00M00S.mp4')
+   echo $mem_file_content > "$ftp_mem_file"
+   if [ $? -eq 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "Cannot CREATE $ftp_mem_file"
    fi
 
    title="Create PID file"
