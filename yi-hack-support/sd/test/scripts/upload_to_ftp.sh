@@ -299,17 +299,6 @@ info_fail()
 
 setup()
 {
-   number_keep_day=10
-   title="Create mem file. Start upload videos of last $number_keep_day days"
-   info_check "$title"
-   mem_file_content=$(date -D %s -d $(( $(date +%s) - ((86400 * $number_keep_day)) )) +'%YY%mM%dD00H/00M00S.mp4')
-   echo $mem_file_content > "$ftp_mem_file"
-   if [ $? -eq 0 ]; then
-      info_ok
-   else
-      info_fail "$title" "Cannot CREATE $ftp_mem_file"
-   fi
-
    title="Create Log dir"
    info_check "$title"
    if [ -r "$ftp_log_dir" ]; then
@@ -321,6 +310,17 @@ setup()
       else
          info_fail "$title" "Cannot CREATE $ftp_log_dir"
       fi
+   fi
+
+   number_keep_day=10
+   title="Create mem file. Start upload videos of last $number_keep_day days"
+   info_check "$title"
+   mem_file_content=$(date -D %s -d $(( $(date +%s) - ((86400 * $number_keep_day)) )) +'%YY%mM%dD00H/00M00S.mp4')
+   echo $mem_file_content > "$ftp_mem_file"
+   if [ $? -eq 0 ]; then
+      info_ok
+   else
+      info_fail "$title" "Cannot CREATE $ftp_mem_file"
    fi
 
    title="Create PID file"
