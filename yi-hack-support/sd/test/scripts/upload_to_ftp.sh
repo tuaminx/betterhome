@@ -68,7 +68,7 @@ mem_store()
 {
    last_folder=$1
    last_file=$2
-   echo "${last_folder}/${last_file}" > ${1-"$ftp_mem_file"}
+   echo "${last_folder}/${last_file}" > ${3-"$ftp_mem_file"}
 }
 
 mem_get()
